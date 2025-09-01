@@ -65,9 +65,9 @@ def parse_uploaded(contents: str) -> pd.DataFrame:
     ctype, content_string = contents.split(",")
     raw = base64.b64decode(content_string)
     try:
-        if "parquet" in ctype or raw[:4] == b"PAR1":
+        if "t" in ctype or raw[:4] == b"PAR1":
             import pyarrow  # noqa
-            return pd.read_parquet(io.BytesIO(raw), engine="pyarrow")
+            return pd.read_t(io.BytesIO(raw), engine="pyarrow")
     except Exception:
         pass
     xls = pd.ExcelFile(io.BytesIO(raw))
@@ -75,8 +75,8 @@ def parse_uploaded(contents: str) -> pd.DataFrame:
 
 def load_local_or_sample() -> pd.DataFrame:
     try:
-        if os.path.exists(LOCAL_PARQUET):
-            return pd.read_parquet(LOCAL_PARQUET)
+        if os.path.exists(LOCAL_T):
+            return pd.read_t(LOCAL_T)
     except Exception:
         pass
     try:
@@ -130,7 +130,7 @@ controls = dbc.Card(
                 dcc.Upload(
                     id="upload-excel",
                     children=dbc.Button("Importar planilha (.xlsx / .parquet)", color="primary", className="w-100"),
-                    accept=".xlsx,.parquet",
+                    accept=".xlsx",
                     multiple=False,
                     className="w-100",
                     style={"border":"0","display":"block"},
@@ -434,3 +434,4 @@ def do_download_xlsx(n_clicks, rows, setor, tipos, situacoes):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
     app.run(host="127.0.0.1", port=port, debug=False)
+
