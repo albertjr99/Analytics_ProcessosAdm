@@ -1,12 +1,13 @@
 # analytics.py — Dash (Plotly)
 # Tabela primeiro (com total), filtros Setor/Tipo/Situação, KPIs, gráficos horizontais,
-# upload Excel/Parquet, download Excel, modo escuro por template e limpar filtros.
-# Performance: Parquet preferido, normalização única, colunas auxiliares *Cmp (category).
+# upload Excel, download Excel, modo escuro por template e limpar filtros.
+# Performance: normalização única, colunas auxiliares *Cmp (category).
 
 import os
 import io
 import base64
 import pandas as pd
+from io import StringIO
 from dash import Dash, html, dcc, dash_table, Input, Output, State
 import plotly.express as px
 import dash_bootstrap_components as dbc
@@ -17,7 +18,6 @@ EXPECTED_COLS = [
     "Nr_Processo", "Abertura", "Tipo", "Setor", "Situacao"
 ]
 LOCAL_XLSX = "rptProcAdm.xlsx"
-LOCAL_PARQUET = "rptProcAdm.parquet"
 
 # tema base (CSS) estável; modo escuro só via template nos gráficos
 BASE_THEME = dbc.themes.FLATLY
@@ -62,36 +62,24 @@ def clean_excel(xls: pd.ExcelFile) -> pd.DataFrame:
     return df
 
 def parse_uploaded(contents: str) -> pd.DataFrame:
+    # Aqui aceitamos apenas Excel (.xlsx), conforme seu requirements e accept
     ctype, content_string = contents.split(",")
     raw = base64.b64decode(content_string)
-    try:
-        if "t" in ctype or raw[:4] == b"PAR1":
-            import pyarrow  # noqa
-            return pd.read_t(io.BytesIO(raw), engine="pyarrow")
-    except Exception:
-        pass
     xls = pd.ExcelFile(io.BytesIO(raw))
     return clean_excel(xls)
 
 def load_local_or_sample() -> pd.DataFrame:
-    try:
-        if os.path.exists(LOCAL_T):
-            return pd.read_t(LOCAL_T)
-    except Exception:
-        pass
+    # 1) Excel local (se existir)
     try:
         if os.path.exists(LOCAL_XLSX):
             xls_local = pd.ExcelFile(LOCAL_XLSX)
             df_local = clean_excel(xls_local)
             if not df_local.empty:
-                try:
-                    import pyarrow  # noqa
-                    df_local.to_parquet(LOCAL_PARQUET, index=False, engine="pyarrow")
-                except Exception:
-                    pass
                 return df_local
     except Exception:
         pass
+
+    # 2) Amostra mínima
     return pd.DataFrame([
         {"Setor":"ARQUIVO SRH","Tipo":"CTC","Situacao":"CONCLUSO"},
         {"Setor":"ARQUIVO SRH","Tipo":"CTC","Situacao":"EM ANÁLISE"},
@@ -112,7 +100,14 @@ DF_BASE = load_local_or_sample()
 
 actions_bar = dbc.Row(
     [
-                dbc.Col(dbc.Button(id="btn-clear", children="🧹 Limpar filtros", color="secondary", outline=True, className="w-100"), md=6, xs=12, className="mb-2"),
+        dbc.Col(
+            dbc.Button(id="btn-theme", children="🌙 Modo Noturno", color="secondary", outline=True, className="w-100"),
+            md=6, xs=12, className="mb-2"
+        ),
+        dbc.Col(
+            dbc.Button(id="btn-clear", children="🧹 Limpar filtros", color="secondary", outline=True, className="w-100"),
+            md=6, xs=12, className="mb-2"
+        ),
     ],
     className="g-2"
 )
@@ -120,6 +115,7 @@ actions_bar = dbc.Row(
 controls = dbc.Card(
     [
         html.Link(id="theme-css", rel="stylesheet", href=BASE_THEME),
+
         html.H5("Filtros", className="mb-3"),
         dcc.Store(id="store-data"),
         dcc.Store(id="store-dark", data=False),  # False claro, True escuro
@@ -129,7 +125,7 @@ controls = dbc.Card(
             [
                 dcc.Upload(
                     id="upload-excel",
-                    children=dbc.Button("Importar planilha (.xlsx / .parquet)", color="primary", className="w-100"),
+                    children=dbc.Button("Importar planilha (.xlsx)", color="primary", className="w-100"),
                     accept=".xlsx",
                     multiple=False,
                     className="w-100",
@@ -160,6 +156,7 @@ controls = dbc.Card(
         actions_bar,
 
         html.Hr(className="my-3"),
+        dbc.Button("Baixar Excel (tabela + agregados)", id="btn-download-xlsx", color="success", className="w-100", n_clicks=0),
         dcc.Download(id="download-xlsx"),
     ],
     body=True, className="shadow-sm rounded-4",
@@ -177,23 +174,22 @@ app.layout = dbc.Container(
                             html.H6("Tabela (quantidades por Setor, Tipo e Situação)", className="mb-2"),
                             html.Div(id="total-processos", className="fw-bold mb-2 text-primary"),
                             dash_table.DataTable(
-    id="tabela",
-    columns=[{"name": c, "id": c} for c in ["Setor","Tipo","Situacao","Quantidade"]],
-    page_size=12,
-    sort_action="native",
-    filter_action="native",
-    style_table={"overflowX": "auto"},
-    style_cell={"padding": "8px"},
-    style_header={
-        "fontWeight": "700",
-        "backgroundColor": "#222",  # cabeçalho mais escuro no modo noturno
-        "color": "white"
-    },
-    style_data_conditional=[
-        {"if": {"state": "active"}, "fontWeight": "600"},  # célula ativa em negrito
-    ],
-),
-
+                                id="tabela",
+                                columns=[{"name": c, "id": c} for c in ["Setor","Tipo","Situacao","Quantidade"]],
+                                page_size=12,
+                                sort_action="native",
+                                filter_action="native",
+                                style_table={"overflowX": "auto"},
+                                style_cell={"padding": "8px"},
+                                style_header={
+                                    "fontWeight": "700",
+                                    "backgroundColor": "#222",
+                                    "color": "white"
+                                },
+                                style_data_conditional=[
+                                    {"if": {"state": "active"}, "fontWeight": "600"},
+                                ],
+                            ),
                         ]), className="shadow-sm rounded-4 mb-3"),
                         html.Div(id="kpis", className="mb-3"),
                         dbc.Row(
@@ -238,7 +234,6 @@ def toggle_dark(n_clicks, dark):
 def apply_theme(dark):
     return (dbc.themes.CYBORG if dark else BASE_THEME)
 
-
 # Inicializa/Upload + normalização
 @app.callback(
     Output("store-data","data"),
@@ -276,7 +271,7 @@ def init_or_upload(contents, filename):
     State("store-data","data"),
 )
 def update_tipos(setor, data_json):
-    df = pd.read_json(data_json, orient="split") if data_json else pd.DataFrame(columns=["Tipo","Setor","SetorCmp","TipoCmp"])
+    df = pd.read_json(StringIO(data_json), orient="split") if data_json else pd.DataFrame(columns=["Tipo","Setor","SetorCmp","TipoCmp"])
     if df.empty: return [], []
     if "SetorCmp" not in df.columns: df["SetorCmp"] = df["Setor"].astype(str).str.strip().str.lower()
     if "Tipo" not in df.columns:     df["Tipo"]     = df["Tipo"].astype(str).str.strip()
@@ -295,7 +290,7 @@ def update_tipos(setor, data_json):
     State("store-data","data"),
 )
 def update_situacao(setor, data_json):
-    df = pd.read_json(data_json, orient="split") if data_json else pd.DataFrame(columns=["Situacao","Setor","SetorCmp","SituacaoCmp"])
+    df = pd.read_json(StringIO(data_json), orient="split") if data_json else pd.DataFrame(columns=["Situacao","Setor","SetorCmp","SituacaoCmp"])
     if df.empty: return [], []
     if "SetorCmp" not in df.columns:   df["SetorCmp"]   = df["Setor"].astype(str).str.strip().str.lower()
     if "Situacao" not in df.columns:   df["Situacao"]   = df["Situacao"].astype(str).str.strip()
@@ -306,20 +301,17 @@ def update_situacao(setor, data_json):
         sits = sorted(df["Situacao"].dropna().unique().tolist())
     return [{"label":s,"value":s} for s in sits], []
 
-# Limpar filtros
-# Limpar filtros  (usa allow_duplicate nos outputs que também são escritos por outros callbacks)
+# Limpar filtros (usa allow_duplicate para não conflitar)
 @app.callback(
-    Output("dd-setor", "value"),  # só este callback escreve -> não precisa allow_duplicate
-    Output("dd-tipo", "value", allow_duplicate=True),       # também é escrito por update_tipos
-    Output("dd-situacao", "value", allow_duplicate=True),   # também é escrito por update_situacao
-    Output("slider-topn", "value"),  # só este callback escreve
+    Output("dd-setor", "value"),
+    Output("dd-tipo", "value", allow_duplicate=True),
+    Output("dd-situacao", "value", allow_duplicate=True),
+    Output("slider-topn", "value"),
     Input("btn-clear", "n_clicks"),
     prevent_initial_call=True,
 )
 def clear_filters(n):
-    # reset: setor vazio, tipo/situação listas vazias, topN 15
     return None, [], [], 15
-
 
 # Gráficos/Tabela/KPIs/Total
 @app.callback(
@@ -339,7 +331,7 @@ def clear_filters(n):
 def update_views(setor, tipos_sel, sits_sel, topn, data_json, dark):
     tipos_sel = tipos_sel or []
     sits_sel  = sits_sel  or []
-    df = pd.read_json(data_json, orient="split") if data_json else pd.DataFrame(columns=["Tipo","Setor","Situacao","SetorCmp","TipoCmp","SituacaoCmp"])
+    df = pd.read_json(StringIO(data_json), orient="split") if data_json else pd.DataFrame(columns=["Tipo","Setor","Situacao","SetorCmp","TipoCmp","SituacaoCmp"])
 
     df_filt = df.copy()
     if "SetorCmp" not in df_filt.columns and "Setor" in df_filt.columns:
@@ -350,7 +342,7 @@ def update_views(setor, tipos_sel, sits_sel, topn, data_json, dark):
         df_filt["SituacaoCmp"] = df_filt["Situacao"].astype(str).str.strip().str.lower()
 
     if setor:
-        setor_norm = str(setor).strip().lower()   # <<< correção: sem .str
+        setor_norm = str(setor).strip().lower()
         df_filt = df_filt[df_filt["SetorCmp"] == setor_norm]
     if tipos_sel:
         tipos_norm = [str(t).strip().lower() for t in tipos_sel]
@@ -432,6 +424,6 @@ def do_download_xlsx(n_clicks, rows, setor, tipos, situacoes):
     return dcc.send_bytes(lambda b: b.write(data), filename="dados_processos.xlsx")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8050))
-    app.run(host="127.0.0.1", port=port, debug=False)
-
+    # Compatível com Render/local
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
