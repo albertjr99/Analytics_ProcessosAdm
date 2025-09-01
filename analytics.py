@@ -156,7 +156,6 @@ controls = dbc.Card(
         actions_bar,
 
         html.Hr(className="my-3"),
-        dbc.Button("Baixar Excel (tabela + agregados)", id="btn-download-xlsx", color="success", className="w-100", n_clicks=0),
         dcc.Download(id="download-xlsx"),
     ],
     body=True, className="shadow-sm rounded-4",
@@ -427,3 +426,4 @@ if __name__ == "__main__":
     # Compatível com Render/local
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
