@@ -100,10 +100,8 @@ DF_BASE = load_local_or_sample()
 
 actions_bar = dbc.Row(
     [
-        dbc.Col(
-            dbc.Button(id="btn-theme", children="🌙 Modo Noturno", color="secondary", outline=True, className="w-100"),
-            md=6, xs=12, className="mb-2"
-        ),
+        
+        
         dbc.Col(
             dbc.Button(id="btn-clear", children="🧹 Limpar filtros", color="secondary", outline=True, className="w-100"),
             md=6, xs=12, className="mb-2"
@@ -426,4 +424,5 @@ if __name__ == "__main__":
     # Compatível com Render/local
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
