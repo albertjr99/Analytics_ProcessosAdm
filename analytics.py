@@ -1,5 +1,5 @@
-# analytics_modernized.py — Versão Modernizada com Design Avançado
-# Sistema de Análise de Processos Administrativos - UI/UX Moderna
+# analytics_optimized.py — Versão Completa Otimizada
+# Sistema de Análise de Processos Administrativos - Performance + Loading Moderno
 
 import os
 import io
@@ -7,38 +7,34 @@ import base64
 import pandas as pd
 from io import StringIO
 from datetime import datetime
+from functools import lru_cache
 from dash import Dash, html, dcc, dash_table, Input, Output, State, callback_context
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import dash_bootstrap_components as dbc
 
-# ----------------- Configurações Avançadas -----------------
+# ----------------- Configurações -----------------
 EXPECTED_COLS = [
     "Descricao", "Col2", "Col3", "Col4", "Interessado",
     "Nr_Processo", "Abertura", "Tipo", "Setor", "Situacao"
 ]
 LOCAL_XLSX = "rptProcAdm.xlsx"
 
-# Paleta de cores moderna
 COLORS = {
-    "primary": "#6366f1",      # Indigo vibrante
-    "secondary": "#8b5cf6",    # Violeta
-    "success": "#10b981",      # Esmeralda
-    "warning": "#f59e0b",      # Âmbar
-    "danger": "#ef4444",       # Vermelho
-    "info": "#06b6d4",         # Ciano
-    "light": "#f8fafc",        # Cinza claro
-    "dark": "#1e293b",         # Cinza escuro
-    "gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    "primary": "#6366f1",
+    "secondary": "#8b5cf6", 
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#06b6d4",
+    "light": "#f8fafc",
+    "dark": "#1e293b",
 }
 
-# Tema customizado com gradientes e glassmorphism
+# CSS com loading otimizado
 CUSTOM_CSS = """
-/* Importa fontes Google */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Reset e base */
 * {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     -webkit-font-smoothing: antialiased;
@@ -51,7 +47,6 @@ body {
     margin: 0;
 }
 
-/* Container principal com glassmorphism */
 .main-container {
     backdrop-filter: blur(20px);
     background: rgba(255, 255, 255, 0.1);
@@ -62,14 +57,117 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
-/* Cards com efeito glass */
+/* === LOADING OVERLAY === */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(15px);
+    min-width: 300px;
+    animation: loadingPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes loadingPulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.02); }
+}
+
+.modern-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(99, 102, 241, 0.2);
+    border-radius: 50%;
+    border-top: 4px solid #6366f1;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-dots {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 15px 0;
+}
+
+.loading-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #6366f1, #8b5cf6);
+    animation: loadingDot 1.4s ease-in-out infinite both;
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.loading-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes loadingDot {
+    0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+    40% { transform: scale(1.2); opacity: 1; }
+}
+
+.loading-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #374151;
+    margin-top: 15px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4, #6366f1);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: loadingText 3s ease-in-out infinite;
+}
+
+@keyframes loadingText {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.loading-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 8px;
+}
+
+/* Glass cards */
 .glass-card {
     backdrop-filter: blur(15px);
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s ease;
     overflow: hidden;
 }
 
@@ -78,7 +176,6 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-/* Header com gradiente */
 .hero-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -89,19 +186,6 @@ body {
     overflow: hidden;
 }
 
-.hero-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    border-radius: 50%;
-    transform: translate(50px, -50px);
-}
-
-/* Sidebar moderna */
 .modern-sidebar {
     background: rgba(255, 255, 255, 0.98);
     border-radius: 20px;
@@ -113,16 +197,12 @@ body {
     top: 20px;
 }
 
-/* Botões modernos */
 .modern-btn {
     border-radius: 12px !important;
     padding: 12px 24px !important;
     font-weight: 500 !important;
-    text-transform: none !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.3s ease !important;
     border: none !important;
-    position: relative !important;
-    overflow: hidden !important;
 }
 
 .btn-primary-modern {
@@ -136,25 +216,6 @@ body {
     box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4) !important;
 }
 
-.btn-secondary-modern {
-    background: rgba(255, 255, 255, 0.9) !important;
-    color: #374151 !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-    backdrop-filter: blur(10px) !important;
-}
-
-/* Dropdowns estilizados */
-.Select-control {
-    border-radius: 12px !important;
-    border: 2px solid rgba(99, 102, 241, 0.2) !important;
-    transition: all 0.3s ease !important;
-}
-
-.Select-control:hover {
-    border-color: rgba(99, 102, 241, 0.4) !important;
-}
-
-/* KPI Cards animados */
 .kpi-card {
     background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
     border-radius: 16px;
@@ -162,7 +223,7 @@ body {
     text-align: center;
     border: 1px solid rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
 }
@@ -175,7 +236,6 @@ body {
     right: 0;
     height: 4px;
     background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
-    border-radius: 16px 16px 0 0;
 }
 
 .kpi-card:hover {
@@ -201,14 +261,6 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* Tabela moderna */
-.dash-table-container {
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-/* Upload area com drag & drop visual */
 .upload-area {
     border: 2px dashed rgba(99, 102, 241, 0.3);
     border-radius: 16px;
@@ -225,51 +277,6 @@ body {
     transform: scale(1.01);
 }
 
-/* Slider customizado */
-.rc-slider-track {
-    background: linear-gradient(90deg, #6366f1, #8b5cf6) !important;
-    height: 6px !important;
-}
-
-.rc-slider-handle {
-    border: 3px solid #6366f1 !important;
-    width: 18px !important;
-    height: 18px !important;
-    margin-top: -6px !important;
-    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3) !important;
-}
-
-/* Animações suaves */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.animate-in {
-    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Loading spinner moderno */
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(99, 102, 241, 0.3);
-    border-radius: 50%;
-    border-top-color: #6366f1;
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Modo escuro melhorado */
 .dark-mode {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
@@ -279,36 +286,53 @@ body {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .modern-sidebar {
-    background: rgba(30, 41, 59, 0.98);
+.dark-mode .loading-container {
+    background: rgba(30, 41, 59, 0.95);
+    color: #f1f5f9;
 }
 
-/* Responsive design */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+    animation: fadeInUp 0.6s ease;
+}
+
 @media (max-width: 768px) {
     .main-container {
         margin: 10px;
         padding: 20px;
-        border-radius: 16px;
     }
-    
-    .hero-header {
-        padding: 20px;
-        text-align: center;
-    }
-    
-    .modern-sidebar {
-        margin-bottom: 20px;
-        position: static;
+    .loading-container {
+        margin: 20px;
+        min-width: auto;
+        padding: 30px 20px;
     }
 }
 """
 
-# -------------- Funções de Leitura/Limpeza (mantidas) --------------
+# -------------- Funções Otimizadas --------------
+@lru_cache(maxsize=32)
+def clean_excel_cached(file_path: str) -> pd.DataFrame:
+    """Versão cacheada da limpeza"""
+    try:
+        if os.path.exists(file_path):
+            xls = pd.ExcelFile(file_path)
+            return clean_excel(xls)
+    except:
+        pass
+    return pd.DataFrame(columns=["Tipo","Setor","Situacao"])
+
 def clean_excel(xls: pd.ExcelFile) -> pd.DataFrame:
+    """Limpeza otimizada de Excel"""
     sheet = "rptProcAdm" if "rptProcAdm" in xls.sheet_names else xls.sheet_names[0]
     df = xls.parse(sheet, skiprows=7)
+    
     if df.empty:
         return pd.DataFrame(columns=["Tipo","Setor","Situacao"])
+    
     df.columns = df.iloc[0]
     df = df.iloc[1:].copy()
     df.columns.name = None
@@ -318,18 +342,14 @@ def clean_excel(xls: pd.ExcelFile) -> pd.DataFrame:
         cols[:10] = EXPECTED_COLS
         df.columns = cols
 
-    if "Tipo" not in df.columns:
-        for c in df.columns:
-            if "TIPO" in str(c).upper():
-                df.rename(columns={c:"Tipo"}, inplace=True); break
-    if "Setor" not in df.columns:
-        for c in df.columns:
-            if "SETOR" in str(c).upper():
-                df.rename(columns={c:"Setor"}, inplace=True); break
-    if "Situacao" not in df.columns:
-        for c in df.columns:
-            if "SITUA" in str(c).upper():
-                df.rename(columns={c:"Situacao"}, inplace=True); break
+    # Mapear colunas
+    mappings = {"Tipo": "TIPO", "Setor": "SETOR", "Situacao": "SITUA"}
+    for target, search in mappings.items():
+        if target not in df.columns:
+            for col in df.columns:
+                if search in str(col).upper():
+                    df.rename(columns={col: target}, inplace=True)
+                    break
 
     keep = [c for c in ["Tipo","Setor","Situacao"] if c in df.columns]
     df = df[keep].copy() if keep else pd.DataFrame(columns=["Tipo","Setor","Situacao"])
@@ -337,25 +357,28 @@ def clean_excel(xls: pd.ExcelFile) -> pd.DataFrame:
     if not df.empty:
         for c in keep:
             df[c] = df[c].astype(str).str.strip()
-        for c in keep:
-            df = df[~df[c].str.lower().isin(["", "nan", "none"])]
+        mask = ~df[keep].isin(["", "nan", "none", "None"]).any(axis=1)
+        df = df[mask]
 
     return df
 
 def parse_uploaded(contents: str) -> pd.DataFrame:
-    ctype, content_string = contents.split(",")
-    raw = base64.b64decode(content_string)
-    xls = pd.ExcelFile(io.BytesIO(raw))
-    return clean_excel(xls)
+    """Parse otimizado de upload"""
+    try:
+        ctype, content_string = contents.split(",")
+        raw = base64.b64decode(content_string)
+        xls = pd.ExcelFile(io.BytesIO(raw))
+        return clean_excel(xls)
+    except Exception as e:
+        print(f"Erro no upload: {e}")
+        return pd.DataFrame(columns=["Tipo","Setor","Situacao"])
 
 def load_local_or_sample() -> pd.DataFrame:
+    """Carregamento otimizado"""
     try:
         if os.path.exists(LOCAL_XLSX):
-            xls_local = pd.ExcelFile(LOCAL_XLSX)
-            df_local = clean_excel(xls_local)
-            if not df_local.empty:
-                return df_local
-    except Exception:
+            return clean_excel_cached(LOCAL_XLSX)
+    except:
         pass
 
     return pd.DataFrame([
@@ -372,15 +395,16 @@ def load_local_or_sample() -> pd.DataFrame:
     ])
 
 def abbreviate(s: str, maxlen: int = 28) -> str:
+    """Abreviação otimizada"""
     s = str(s)
     return (s[:maxlen-1] + "…") if len(s) > maxlen else s
 
-# ----------------- App Modernizado -----------------
+# ----------------- App Setup -----------------
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "Análise de Processos Administrativos"
+app.title = "Análise de Caixas de Processo - SISPREV"
 server = app.server
 
-# Adicionar CSS customizado como asset interno
+# Injetar CSS
 app.index_string = f'''
 <!DOCTYPE html>
 <html>
@@ -390,9 +414,7 @@ app.index_string = f'''
         {{%favicon%}}
         {{%css%}}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-        <style>
-            {CUSTOM_CSS}
-        </style>
+        <style>{CUSTOM_CSS}</style>
     </head>
     <body>
         {{%app_entry%}}
@@ -407,229 +429,188 @@ app.index_string = f'''
 
 DF_BASE = load_local_or_sample()
 
-# Componentes modernos
-def create_hero_header():
-    return html.Div(
-        className="hero-header animate-in",
-        children=[
-            dbc.Row([
-                dbc.Col([
-                    html.H1("📊 Análise de Processos - SISPREV", 
-                           className="display-4 fw-bold mb-3",
-                           style={"fontSize": "3rem"}),
-                    html.P("Sistema Inteligente de Análise de Processos Administrativos", 
-                           className="lead mb-4 opacity-90",
-                           style={"fontSize": "1.2rem"}),
-                    html.Div([
-                                          ], className="mb-3"),
-                    html.Small(f"Última atualização: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", 
-                              className="opacity-75")
-                ], md=8),
-                dbc.Col([
-                    html.Div([
-                        html.I(className="fas fa-chart-bar fa-5x opacity-20"),
-                    ], className="text-end")
-                ], md=4, className="d-none d-md-block")
-            ])
-        ]
-    )
+# -------------- Componentes --------------
+def create_loading_overlay():
+    """Overlay de loading"""
+    return html.Div([
+        html.Div([
+            html.Div(className="modern-spinner"),
+            html.Div([
+                html.Div(className="loading-dot"),
+                html.Div(className="loading-dot"),
+                html.Div(className="loading-dot"),
+            ], className="loading-dots"),
+            html.Div("Processando dados...", className="loading-text", id="loading-text"),
+            html.Div("Por favor, aguarde", className="loading-subtitle"),
+        ], className="loading-container")
+    ], className="loading-overlay", id="loading-overlay")
 
-def create_modern_sidebar():
-    return html.Div(
-        className="modern-sidebar animate-in",
-        children=[
-            # Seção de Upload
+def create_hero_header():
+    """Header principal"""
+    return html.Div([
+        dbc.Row([
+            dbc.Col([
+                html.H1("📊 Análise de Caixa de Processos - SISPREV", className="display-4 fw-bold mb-3"),
+                html.P("Sistema Inteligente de Análise de Processos", className="lead mb-4"),
+                html.Small(f"Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 
+                          className="opacity-75")
+            ], md=8),
+            dbc.Col([
+                html.I(className="fas fa-chart-bar fa-5x opacity-20")
+            ], md=4, className="text-end d-none d-md-block")
+        ])
+    ], className="hero-header animate-in")
+
+def create_sidebar():
+    """Sidebar moderna"""
+    return html.Div([
+        # Upload
+        html.Div([
+            html.H5([html.I(className="fas fa-upload me-2"), "Importar Dados"], 
+                   className="mb-3 text-primary fw-bold"),
+            dcc.Upload(
+                id="upload-excel",
+                children=html.Div([
+                    html.I(className="fas fa-cloud-upload-alt fa-2x mb-2 text-primary"),
+                    html.Br(),
+                    "Arraste ou clique para selecionar",
+                    html.Br(),
+                    html.Small("Apenas .xlsx", className="text-muted")
+                ], className="upload-area"),
+                accept=".xlsx",
+                multiple=False,
+            ),
+            html.Div(id="upload-status", className="mt-2"),
+        ], className="mb-4"),
+        
+        html.Hr(),
+        
+        # Filtros
+        html.Div([
+            html.H5([html.I(className="fas fa-filter me-2"), "Filtros"], 
+                   className="mb-3 text-primary fw-bold"),
+            
             html.Div([
-                html.H5([html.I(className="fas fa-upload me-2"), "Importar Dados"], 
-                       className="mb-3 text-primary fw-bold"),
-                dcc.Upload(
-                    id="upload-excel",
-                    children=html.Div([
-                        html.I(className="fas fa-cloud-upload-alt fa-2x mb-2 text-primary"),
-                        html.Br(),
-                        "Arraste arquivos aqui ou ",
-                        html.A("clique para selecionar", className="text-primary fw-bold"),
-                        html.Br(),
-                        html.Small("Apenas arquivos .xlsx", className="text-muted")
-                    ], className="upload-area"),
-                    accept=".xlsx",
-                    multiple=False,
+                dbc.Label("🏢 Setor", className="fw-semibold mb-2"),
+                dcc.Dropdown(
+                    id="dd-setor",
+                    options=[{"label": s, "value": s} for s in sorted(DF_BASE["Setor"].unique())] if not DF_BASE.empty else [],
+                    value=None,
+                    placeholder="Selecione um setor",
+                    clearable=True,
+                    style={"marginBottom": "1rem"}
                 ),
-                html.Div(id="upload-status", className="mt-2"),
-            ], className="mb-4"),
-            
-            html.Hr(),
-            
-            # Filtros
-            html.Div([
-                html.H5([html.I(className="fas fa-filter me-2"), "Filtros"], 
-                       className="mb-3 text-primary fw-bold"),
-                
-                html.Div([
-                    dbc.Label("🏢 Setor", className="fw-semibold mb-2"),
-                    dcc.Dropdown(
-                        id="dd-setor",
-                        options=([{"label": s, "value": s} for s in sorted(DF_BASE["Setor"].unique())] if not DF_BASE.empty else []),
-                        value=None,
-                        placeholder="Selecione um setor",
-                        clearable=True,
-                        style={"marginBottom": "1rem"}
-                    ),
-                ]),
-                
-                html.Div([
-                    dbc.Label("📋 Tipo (múltipla seleção)", className="fw-semibold mb-2"),
-                    dcc.Dropdown(
-                        id="dd-tipo", 
-                        multi=True, 
-                        placeholder="Filtrar por tipos",
-                        style={"marginBottom": "1rem"}
-                    ),
-                ]),
-                
-                html.Div([
-                    dbc.Label("📊 Situação (múltipla seleção)", className="fw-semibold mb-2"),
-                    dcc.Dropdown(
-                        id="dd-situacao", 
-                        multi=True, 
-                        placeholder="Filtrar por situações",
-                        style={"marginBottom": "1rem"}
-                    ),
-                ]),
-                
-                html.Div([
-                    dbc.Label("📈 Top N itens", className="fw-semibold mb-2"),
-                    dcc.Slider(
-                        id="slider-topn",
-                        min=5, max=50, step=5, value=15,
-                        marks={5: '5', 15: '15', 30: '30', 50: '50'},
-                        tooltip={"placement":"bottom", "always_visible":True}
-                    ),
-                ], className="mb-3"),
-            ], className="mb-4"),
-            
-            html.Hr(),
-            
-            # Ações
-            html.Div([
-                html.H5([html.I(className="fas fa-tools me-2"), "Ações"], 
-                       className="mb-3 text-primary fw-bold"),
-                
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Button([
-                            html.I(className="fas fa-moon me-2"),
-                            html.Span("Modo Noturno", id="theme-text")
-                        ], id="btn-theme", color="outline-secondary", 
-                           className="modern-btn w-100 mb-2")
-                    ], xs=12),
-                    dbc.Col([
-                        dbc.Button([
-                            html.I(className="fas fa-broom me-2"),
-                            "Limpar Filtros"
-                        ], id="btn-clear", color="outline-warning", 
-                           className="modern-btn w-100 mb-2")
-                    ], xs=12),
-                    
-                        
-                        
-                ]),
             ]),
             
-            # Stores
-            dcc.Store(id="store-data"),
-            dcc.Store(id="store-dark", data=False),
-            dcc.Download(id="download-xlsx"),
-        ]
-    )
-
-def create_stats_cards():
-    return html.Div(id="stats-section", className="mb-4")
+            html.Div([
+                dbc.Label("📋 Tipo", className="fw-semibold mb-2"),
+                dcc.Dropdown(id="dd-tipo", multi=True, placeholder="Filtrar tipos",
+                           style={"marginBottom": "1rem"}),
+            ]),
+            
+            html.Div([
+                dbc.Label("📊 Situação", className="fw-semibold mb-2"),
+                dcc.Dropdown(id="dd-situacao", multi=True, placeholder="Filtrar situações",
+                           style={"marginBottom": "1rem"}),
+            ]),
+            
+            html.Div([
+                dbc.Label("📈 Top N itens", className="fw-semibold mb-2"),
+                dcc.Slider(
+                    id="slider-topn", min=5, max=50, step=5, value=15,
+                    marks={5: '5', 15: '15', 30: '30', 50: '50'},
+                    tooltip={"placement":"bottom", "always_visible":True}
+                ),
+            ], className="mb-3"),
+        ], className="mb-4"),
+        
+        html.Hr(),
+        
+        # Ações
+        html.Div([
+            html.H5([html.I(className="fas fa-tools me-2"), "Ações"], 
+                   className="mb-3 text-primary fw-bold"),
+            
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button([
+                        html.I(className="fas fa-moon me-2"),
+                        html.Span("Modo Noturno", id="theme-text")
+                    ], id="btn-theme", color="outline-secondary", 
+                       className="modern-btn w-100 mb-2")
+                ], xs=12),
+                dbc.Col([
+                    dbc.Button([
+                        html.I(className="fas fa-broom me-2"), "Limpar"
+                    ], id="btn-clear", color="outline-warning", 
+                       className="modern-btn w-100 mb-2")
+                ], xs=12),
+                
+            ]),
+        ]),
+        
+        # Stores
+        dcc.Store(id="store-data"),
+        dcc.Store(id="store-dark", data=False),
+        dcc.Store(id="store-loading", data=False),
+        dcc.Download(id="download-excel"),
+        
+    ], className="modern-sidebar animate-in")
 
 def create_main_content():
+    """Conteúdo principal"""
     return html.Div([
-        # Seção de estatísticas
-        create_stats_cards(),
+        # Loading overlay
+        create_loading_overlay(),
         
-        # Tabela principal
+        # Stats
+        html.Div(id="stats-cards", className="mb-4"),
+        
+        # Tabela
         html.Div([
             dbc.Card([
                 dbc.CardHeader([
-                    html.H5([
-                        html.I(className="fas fa-table me-2"),
-                        "Tabela Detalhada"
-                    ], className="mb-0 text-primary fw-bold")
+                    html.H5([html.I(className="fas fa-table me-2"), "Dados Detalhados"], 
+                           className="mb-0 text-primary fw-bold")
                 ], className="bg-light"),
                 dbc.CardBody([
-                    html.Div(id="total-processos", className="mb-3"),
-                    dash_table.DataTable(
-                        id="tabela",
-                        columns=[{"name": c, "id": c} for c in ["Setor","Tipo","Situacao","Quantidade"]],
-                        page_size=15,
-                        sort_action="native",
-                        filter_action="native",
-                        style_table={"overflowX": "auto"},
-                        style_cell={
-                            "padding": "12px",
-                            "fontFamily": "Inter, sans-serif",
-                            "fontSize": "14px",
-                        },
-                        style_header={
-                            "fontWeight": "600",
-                            "backgroundColor": COLORS["primary"],
-                            "color": "white",
-                            "textAlign": "left"
-                        },
-                        style_data_conditional=[
-                            {"if": {"state": "active"}, "backgroundColor": "rgba(99, 102, 241, 0.1)"},
-                            {"if": {"state": "selected"}, "backgroundColor": "rgba(99, 102, 241, 0.2)"},
-                        ],
-                    ),
+                    html.Div(id="total-info", className="mb-3"),
+                    html.Div(id="table-content"),
                 ])
             ], className="glass-card animate-in"),
         ], className="mb-4"),
         
-        # Seção de gráficos
+        # Gráficos
         html.Div([
             dbc.Row([
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H6([
-                                html.I(className="fas fa-chart-pie me-2"),
-                                "Situações"
-                            ], className="mb-0 text-primary fw-bold")
+                            html.H6([html.I(className="fas fa-chart-pie me-2"), "Situações"], 
+                                   className="mb-0 text-primary fw-bold")
                         ], className="bg-light"),
-                        dbc.CardBody([
-                            dcc.Graph(id="grafico-situacao", style={"height": "400px"})
-                        ])
-                    ], className="glass-card animate-in h-100"),
+                        dbc.CardBody([html.Div(id="chart-situacao")])
+                    ], className="glass-card h-100"),
                 ], md=4, className="mb-3"),
+                
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H6([
-                                html.I(className="fas fa-chart-bar me-2"),
-                                "Tipos"
-                            ], className="mb-0 text-primary fw-bold")
+                            html.H6([html.I(className="fas fa-chart-bar me-2"), "Tipos"], 
+                                   className="mb-0 text-primary fw-bold")
                         ], className="bg-light"),
-                        dbc.CardBody([
-                            dcc.Graph(id="grafico-tipos", style={"height": "400px"})
-                        ])
-                    ], className="glass-card animate-in h-100"),
+                        dbc.CardBody([html.Div(id="chart-tipos")])
+                    ], className="glass-card h-100"),
                 ], md=4, className="mb-3"),
+                
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H6([
-                                html.I(className="fas fa-building me-2"),
-                                "Setores"
-                            ], className="mb-0 text-primary fw-bold")
+                            html.H6([html.I(className="fas fa-building me-2"), "Setores"], 
+                                   className="mb-0 text-primary fw-bold")
                         ], className="bg-light"),
-                        dbc.CardBody([
-                            dcc.Graph(id="grafico-setores", style={"height": "400px"})
-                        ])
-                    ], className="glass-card animate-in h-100"),
+                        dbc.CardBody([html.Div(id="chart-setores")])
+                    ], className="glass-card h-100"),
                 ], md=4, className="mb-3"),
             ])
         ])
@@ -639,44 +620,57 @@ def create_main_content():
 app.layout = html.Div([
     html.Div([
         create_hero_header(),
-        
         dbc.Row([
-            dbc.Col([
-                create_modern_sidebar()
-            ], md=3),
-            dbc.Col([
-                create_main_content()
-            ], md=9)
+            dbc.Col([create_sidebar()], md=3),
+            dbc.Col([create_main_content()], md=9)
         ])
     ], className="main-container", id="main-container")
 ])
 
-# ----------------- Callbacks Modernizados -----------------
+# -------------- Callbacks --------------
 
-# Modo escuro melhorado
+# Controle de loading
+app.clientside_callback(
+    """
+    function(loading) {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            if (loading) {
+                overlay.classList.add('active');
+            } else {
+                setTimeout(() => overlay.classList.remove('active'), 300);
+            }
+        }
+        return '';
+    }
+    """,
+    Output('loading-text', 'children'),
+    Input('store-loading', 'data')
+)
+
+# Modo escuro
 @app.callback(
-    Output("store-dark", "data"),
-    Output("theme-text", "children"),
-    Output("main-container", "className"),
+    [Output("store-dark", "data"),
+     Output("theme-text", "children"),
+     Output("main-container", "className")],
     Input("btn-theme", "n_clicks"),
     State("store-dark", "data"),
     prevent_initial_call=False,
 )
-def toggle_dark_mode(n_clicks, dark):
+def toggle_theme(n_clicks, dark):
     if n_clicks is None:
         return False, "Modo Noturno", "main-container"
     
     new_dark = not bool(dark)
     theme_text = "Modo Claro" if new_dark else "Modo Noturno"
     container_class = "main-container dark-mode" if new_dark else "main-container"
-    
     return new_dark, theme_text, container_class
 
-# Upload com feedback visual melhorado
+# Upload e inicialização
 @app.callback(
-    Output("store-data", "data"),
-    Output("dd-setor", "options"),
-    Output("upload-status", "children"),
+    [Output("store-data", "data"),
+     Output("dd-setor", "options"),
+     Output("upload-status", "children")],
     Input("upload-excel", "contents"),
     State("upload-excel", "filename"),
     prevent_initial_call=False,
@@ -686,20 +680,20 @@ def handle_upload(contents, filename):
         try:
             df = parse_uploaded(contents)
             status = dbc.Alert([
-                html.I(className="fas fa-check-circle me-2"),
-                f"✅ Sucesso! Arquivo '{filename}' carregado com {len(df)} registros"
+                html.I(className="fas fa-check me-2"),
+                f"✅ {filename} carregado com {len(df)} registros"
             ], color="success", dismissable=True, className="mt-2")
         except Exception as e:
             df = DF_BASE.copy()
             status = dbc.Alert([
-                html.I(className="fas fa-exclamation-triangle me-2"),
-                f"❌ Erro ao carregar '{filename}': {str(e)}"
+                html.I(className="fas fa-times me-2"),
+                f"❌ Erro: {str(e)}"
             ], color="danger", dismissable=True, className="mt-2")
     else:
         df = DF_BASE.copy()
         status = dbc.Alert([
-            html.I(className="fas fa-info-circle me-2"),
-            "📁 Usando dados de exemplo"
+            html.I(className="fas fa-info me-2"),
+            "📁 Dados de exemplo carregados"
         ], color="info", className="mt-2")
 
     # Normalização
@@ -716,91 +710,85 @@ def handle_upload(contents, filename):
         status
     )
 
-# Stats cards com animação
+# Stats cards
 @app.callback(
-    Output("stats-section", "children"),
-    Input("dd-setor", "value"),
-    Input("dd-tipo", "value"),
-    Input("dd-situacao", "value"),
+    Output("stats-cards", "children"),
+    [Input("dd-setor", "value"),
+     Input("dd-tipo", "value"),
+     Input("dd-situacao", "value")],
     State("store-data", "data"),
 )
-def update_stats_cards(setor, tipos_sel, sits_sel, data_json):
+def update_stats(setor, tipos, situacoes, data_json):
     if not data_json:
         return html.Div()
     
     df = pd.read_json(StringIO(data_json), orient="split")
+    df_filt = df.copy()
     
     # Aplicar filtros
-    df_filt = df.copy()
     if setor and "SetorCmp" in df_filt.columns:
         df_filt = df_filt[df_filt["SetorCmp"] == str(setor).lower()]
-    if tipos_sel and "TipoCmp" in df_filt.columns:
-        df_filt = df_filt[df_filt["TipoCmp"].isin([str(t).lower() for t in tipos_sel])]
-    if sits_sel and "SituacaoCmp" in df_filt.columns:
-        df_filt = df_filt[df_filt["SituacaoCmp"].isin([str(s).lower() for s in sits_sel])]
+    if tipos and "TipoCmp" in df_filt.columns:
+        tipos_norm = [str(t).lower() for t in tipos]
+        df_filt = df_filt[df_filt["TipoCmp"].isin(tipos_norm)]
+    if situacoes and "SituacaoCmp" in df_filt.columns:
+        sits_norm = [str(s).lower() for s in situacoes]
+        df_filt = df_filt[df_filt["SituacaoCmp"].isin(sits_norm)]
     
+    # Métricas
     total = len(df_filt)
+    setores_count = df_filt["Setor"].nunique() if "Setor" in df_filt.columns and not df_filt.empty else 0
+    tipos_count = df_filt["Tipo"].nunique() if "Tipo" in df_filt.columns and not df_filt.empty else 0
     
-    # Top situações
+    # Situação mais comum
+    situacao_top = "N/A"
+    situacao_count = 0
     if not df_filt.empty and "Situacao" in df_filt.columns:
-        top_sits = df_filt.groupby("Situacao").size().reset_index(name="Qtd").sort_values("Qtd", ascending=False).head(3)
-        setores_count = df_filt["Setor"].nunique() if "Setor" in df_filt.columns else 0
-        tipos_count = df_filt["Tipo"].nunique() if "Tipo" in df_filt.columns else 0
+        top_sit = df_filt["Situacao"].value_counts()
+        if len(top_sit) > 0:
+            situacao_top = abbreviate(top_sit.index[0], 15)
+            situacao_count = top_sit.iloc[0]
+    
+    cards = [
+        dbc.Col([
+            html.Div([
+                html.Div("📊", style={"fontSize": "2rem", "marginBottom": "10px"}),
+                html.Div(f"{total:,}", className="kpi-value"),
+                html.Div("Total Processos", className="kpi-label")
+            ], className="kpi-card")
+        ], md=3, sm=6, xs=12),
         
-        cards = [
-            # Total de Processos
-            dbc.Col([
-                html.Div([
-                    html.Div("📊", style={"fontSize": "2rem", "marginBottom": "10px"}),
-                    html.Div(f"{total:,}", className="kpi-value"),
-                    html.Div("Total de Processos", className="kpi-label")
-                ], className="kpi-card")
-            ], md=3, sm=6, xs=12),
-            
-            # Setores Únicos
-            dbc.Col([
-                html.Div([
-                    html.Div("🏢", style={"fontSize": "2rem", "marginBottom": "10px"}),
-                    html.Div(f"{setores_count}", className="kpi-value"),
-                    html.Div("Setores Ativos", className="kpi-label")
-                ], className="kpi-card")
-            ], md=3, sm=6, xs=12),
-            
-            # Tipos Únicos
-            dbc.Col([
-                html.Div([
-                    html.Div("📋", style={"fontSize": "2rem", "marginBottom": "10px"}),
-                    html.Div(f"{tipos_count}", className="kpi-value"),
-                    html.Div("Tipos Diferentes", className="kpi-label")
-                ], className="kpi-card")
-            ], md=3, sm=6, xs=12),
-            
-            # Situação Mais Comum
-            dbc.Col([
-                html.Div([
-                    html.Div("⭐", style={"fontSize": "2rem", "marginBottom": "10px"}),
-                    html.Div(f"{top_sits.iloc[0]['Qtd'] if not top_sits.empty else 0}", className="kpi-value"),
-                    html.Div(f"Mais Comum: {abbreviate(top_sits.iloc[0]['Situacao'], 15) if not top_sits.empty else 'N/A'}", className="kpi-label")
-                ], className="kpi-card")
-            ], md=3, sm=6, xs=12),
-        ]
-    else:
-        cards = [
-            dbc.Col([
-                html.Div([
-                    html.Div("📊", style={"fontSize": "2rem", "marginBottom": "10px"}),
-                    html.Div("0", className="kpi-value"),
-                    html.Div("Nenhum Dado", className="kpi-label")
-                ], className="kpi-card")
-            ], md=12)
-        ]
+        dbc.Col([
+            html.Div([
+                html.Div("🏢", style={"fontSize": "2rem", "marginBottom": "10px"}),
+                html.Div(f"{setores_count}", className="kpi-value"),
+                html.Div("Setores Ativos", className="kpi-label")
+            ], className="kpi-card")
+        ], md=3, sm=6, xs=12),
+        
+        dbc.Col([
+            html.Div([
+                html.Div("📋", style={"fontSize": "2rem", "marginBottom": "10px"}),
+                html.Div(f"{tipos_count}", className="kpi-value"),
+                html.Div("Tipos Únicos", className="kpi-label")
+            ], className="kpi-card")
+        ], md=3, sm=6, xs=12),
+        
+        dbc.Col([
+            html.Div([
+                html.Div("⭐", style={"fontSize": "2rem", "marginBottom": "10px"}),
+                html.Div(f"{situacao_count}", className="kpi-value"),
+                html.Div(f"Top: {situacao_top}", className="kpi-label")
+            ], className="kpi-card")
+        ], md=3, sm=6, xs=12),
+    ]
     
     return dbc.Row(cards, className="g-3 mb-4 animate-in")
 
-# Filtros dependentes melhorados
+# Filtros dependentes - Tipos
 @app.callback(
-    Output("dd-tipo", "options"),
-    Output("dd-tipo", "value"),
+    [Output("dd-tipo", "options"),
+     Output("dd-tipo", "value")],
     Input("dd-setor", "value"),
     State("store-data", "data"),
 )
@@ -810,16 +798,18 @@ def update_tipos(setor, data_json):
     
     df = pd.read_json(StringIO(data_json), orient="split")
     
-    if setor and "SetorCmp" in df.columns:
-        tipos = sorted(df.loc[df["SetorCmp"] == str(setor).lower(), "Tipo"].dropna().unique())
+    if setor and "SetorCmp" in df.columns and "Tipo" in df.columns:
+        tipos = df.loc[df["SetorCmp"] == str(setor).lower(), "Tipo"].dropna().unique()
+        tipos = sorted(tipos.tolist())
     else:
-        tipos = sorted(df["Tipo"].dropna().unique()) if "Tipo" in df.columns else []
+        tipos = sorted(df["Tipo"].dropna().unique().tolist()) if "Tipo" in df.columns else []
     
     return [{"label": t, "value": t} for t in tipos], []
 
+# Filtros dependentes - Situações
 @app.callback(
-    Output("dd-situacao", "options"),
-    Output("dd-situacao", "value"),
+    [Output("dd-situacao", "options"),
+     Output("dd-situacao", "value")],
     Input("dd-setor", "value"),
     State("store-data", "data"),
 )
@@ -829,251 +819,287 @@ def update_situacoes(setor, data_json):
     
     df = pd.read_json(StringIO(data_json), orient="split")
     
-    if setor and "SetorCmp" in df.columns:
-        sits = sorted(df.loc[df["SetorCmp"] == str(setor).lower(), "Situacao"].dropna().unique())
+    if setor and "SetorCmp" in df.columns and "Situacao" in df.columns:
+        sits = df.loc[df["SetorCmp"] == str(setor).lower(), "Situacao"].dropna().unique()
+        sits = sorted(sits.tolist())
     else:
-        sits = sorted(df["Situacao"].dropna().unique()) if "Situacao" in df.columns else []
+        sits = sorted(df["Situacao"].dropna().unique().tolist()) if "Situacao" in df.columns else []
     
     return [{"label": s, "value": s} for s in sits], []
 
 # Limpar filtros
 @app.callback(
-    Output("dd-setor", "value"),
-    Output("dd-tipo", "value", allow_duplicate=True),
-    Output("dd-situacao", "value", allow_duplicate=True),
-    Output("slider-topn", "value"),
+    [Output("dd-setor", "value"),
+     Output("dd-tipo", "value", allow_duplicate=True),
+     Output("dd-situacao", "value", allow_duplicate=True),
+     Output("slider-topn", "value")],
     Input("btn-clear", "n_clicks"),
     prevent_initial_call=True,
 )
 def clear_filters(n):
     return None, [], [], 15
 
-# Callback principal com gráficos modernizados
+# Tabela principal
 @app.callback(
-    Output("grafico-situacao", "figure"),
-    Output("grafico-tipos", "figure"),
-    Output("grafico-setores", "figure"),
-    Output("tabela", "data"),
-    Output("total-processos", "children"),
-    Input("dd-setor", "value"),
-    Input("dd-tipo", "value"),
-    Input("dd-situacao", "value"),
-    Input("slider-topn", "value"),
+    Output("table-content", "children"),
+    [Input("dd-setor", "value"),
+     Input("dd-tipo", "value"),
+     Input("dd-situacao", "value")],
     State("store-data", "data"),
-    State("store-dark", "data"),
 )
-def update_main_content(setor, tipos_sel, sits_sel, topn, data_json, dark):
+def update_table(setor, tipos, situacoes, data_json):
     if not data_json:
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(
-            text="Nenhum dado disponível",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16, color="gray")
-        )
-        return empty_fig, empty_fig, empty_fig, [], "Nenhum dado disponível"
+        return html.Div("Nenhum dado disponível")
     
     df = pd.read_json(StringIO(data_json), orient="split")
-    tipos_sel = tipos_sel or []
-    sits_sel = sits_sel or []
-    
-    # Filtrar dados
     df_filt = df.copy()
+    
+    # Aplicar filtros
+    tipos = tipos or []
+    situacoes = situacoes or []
+    
     if setor and "SetorCmp" in df_filt.columns:
         df_filt = df_filt[df_filt["SetorCmp"] == str(setor).lower()]
-    if tipos_sel and "TipoCmp" in df_filt.columns:
-        df_filt = df_filt[df_filt["TipoCmp"].isin([str(t).lower() for t in tipos_sel])]
-    if sits_sel and "SituacaoCmp" in df_filt.columns:
-        df_filt = df_filt[df_filt["SituacaoCmp"].isin([str(s).lower() for s in sits_sel])]
+    if tipos and "TipoCmp" in df_filt.columns:
+        tipos_norm = [str(t).lower() for t in tipos]
+        df_filt = df_filt[df_filt["TipoCmp"].isin(tipos_norm)]
+    if situacoes and "SituacaoCmp" in df_filt.columns:
+        sits_norm = [str(s).lower() for s in situacoes]
+        df_filt = df_filt[df_filt["SituacaoCmp"].isin(sits_norm)]
     
-    # Tabela agrupada
-    gt = (
-        df_filt.groupby(["Setor", "Tipo", "Situacao"]).size().reset_index(name="Quantidade")
-        if not df_filt.empty else
-        pd.DataFrame({"Setor": [], "Tipo": [], "Situacao": [], "Quantidade": []})
+    # Agrupamento
+    if not df_filt.empty:
+        gt = df_filt.groupby(["Setor", "Tipo", "Situacao"]).size().reset_index(name="Quantidade")
+    else:
+        gt = pd.DataFrame({"Setor": [], "Tipo": [], "Situacao": [], "Quantidade": []})
+    
+    return dash_table.DataTable(
+        data=gt.to_dict("records"),
+        columns=[{"name": c, "id": c} for c in ["Setor","Tipo","Situacao","Quantidade"]],
+        page_size=15,
+        sort_action="native",
+        filter_action="native",
+        style_table={"overflowX": "auto"},
+        style_cell={
+            "padding": "12px",
+            "fontFamily": "Inter, sans-serif",
+            "fontSize": "14px",
+        },
+        style_header={
+            "fontWeight": "600",
+            "backgroundColor": COLORS["primary"],
+            "color": "white",
+            "textAlign": "left"
+        },
+        style_data_conditional=[
+            {"if": {"state": "active"}, "backgroundColor": "rgba(99, 102, 241, 0.1)"},
+            {"if": {"state": "selected"}, "backgroundColor": "rgba(99, 102, 241, 0.2)"},
+        ],
     )
+
+# Total de processos
+@app.callback(
+    Output("total-info", "children"),
+    [Input("dd-setor", "value"),
+     Input("dd-tipo", "value"),
+     Input("dd-situacao", "value")],
+    State("store-data", "data"),
+)
+def update_total(setor, tipos, situacoes, data_json):
+    if not data_json:
+        return dbc.Alert("Nenhum dado disponível", color="warning")
     
-    total = int(gt["Quantidade"].sum()) if not gt.empty else 0
+    df = pd.read_json(StringIO(data_json), orient="split")
+    df_filt = df.copy()
     
-    # Status com ícones
+    # Aplicar filtros
+    tipos = tipos or []
+    situacoes = situacoes or []
+    
+    if setor and "SetorCmp" in df_filt.columns:
+        df_filt = df_filt[df_filt["SetorCmp"] == str(setor).lower()]
+    if tipos and "TipoCmp" in df_filt.columns:
+        tipos_norm = [str(t).lower() for t in tipos]
+        df_filt = df_filt[df_filt["TipoCmp"].isin(tipos_norm)]
+    if situacoes and "SituacaoCmp" in df_filt.columns:
+        sits_norm = [str(s).lower() for s in situacoes]
+        df_filt = df_filt[df_filt["SituacaoCmp"].isin(sits_norm)]
+    
+    total = len(df_filt)
+    
     if total > 0:
-        total_display = dbc.Alert([
+        return dbc.Alert([
             html.I(className="fas fa-chart-line me-2"),
             html.Strong(f"📈 {total:,} processos encontrados"),
             html.Br(),
-            html.Small(f"Filtros aplicados: Setor={setor or 'Todos'}, Tipos={len(tipos_sel)}, Situações={len(sits_sel)}")
+            html.Small(f"Filtros: Setor={setor or 'Todos'} | Tipos={len(tipos)} | Situações={len(situacoes)}")
         ], color="primary", className="mb-0")
     else:
-        total_display = dbc.Alert([
+        return dbc.Alert([
             html.I(className="fas fa-search me-2"),
-            "🔍 Nenhum processo encontrado com os filtros aplicados"
+            "🔍 Nenhum processo encontrado"
         ], color="warning", className="mb-0")
-    
-    # Configuração de tema para gráficos
-    template = "plotly_dark" if dark else "plotly_white"
-    color_palette = px.colors.qualitative.Set3
-    
-    # Gráfico de Situações - Melhorado
-    gS = gt.groupby("Situacao")["Quantidade"].sum().reset_index() if not gt.empty else pd.DataFrame({"Situacao": [], "Quantidade": []})
-    gS = gS.sort_values("Quantidade", ascending=True).head(topn)
-    
-    figS = px.bar(
-        gS, 
-        y="Situacao", 
-        x="Quantidade", 
-        orientation="h",
-        template=template,
-        color="Quantidade",
-        color_continuous_scale="Viridis",
-        title="Distribuição por Situação"
-    )
-    figS.update_layout(
-        height=400,
-        margin=dict(l=10, r=10, t=40, b=10),
-        yaxis={"categoryorder": "total ascending"},
-        showlegend=False,
-        font=dict(family="Inter, sans-serif"),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    figS.update_traces(
-        hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>",
-        marker_line_color="white",
-        marker_line_width=1
-    )
-    
-    # Gráfico de Tipos - Melhorado
-    gT = gt.groupby("Tipo")["Quantidade"].sum().reset_index() if not gt.empty else pd.DataFrame({"Tipo": [], "Quantidade": []})
-    gT = gT.sort_values("Quantidade", ascending=True).head(topn)
-    
-    figT = px.bar(
-        gT,
-        y="Tipo",
-        x="Quantidade",
-        orientation="h",
-        template=template,
-        color="Quantidade",
-        color_continuous_scale="Plasma",
-        title="Distribuição por Tipo"
-    )
-    figT.update_layout(
-        height=400,
-        margin=dict(l=10, r=10, t=40, b=10),
-        yaxis={"categoryorder": "total ascending"},
-        showlegend=False,
-        font=dict(family="Inter, sans-serif"),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    figT.update_traces(
-        hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>",
-        marker_line_color="white",
-        marker_line_width=1
-    )
-    
-    # Gráfico de Setores - Melhorado (usando dados completos)
-    gZ = df.groupby("Setor").size().reset_index(name="Quantidade") if not df.empty else pd.DataFrame({"Setor": [], "Quantidade": []})
-    gZ = gZ.sort_values("Quantidade", ascending=True).head(topn)
-    
-    figZ = px.bar(
-        gZ,
-        y="Setor",
-        x="Quantidade",
-        orientation="h",
-        template=template,
-        color="Quantidade",
-        color_continuous_scale="Turbo",
-        title="Comparativo de Setores (Total)"
-    )
-    figZ.update_layout(
-        height=400,
-        margin=dict(l=10, r=10, t=40, b=10),
-        yaxis={"categoryorder": "total ascending"},
-        showlegend=False,
-        font=dict(family="Inter, sans-serif"),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    figZ.update_traces(
-        hovertemplate="<b>%{y}</b><br>Quantidade: %{x}<extra></extra>",
-        marker_line_color="white",
-        marker_line_width=1
-    )
-    
-    return figS, figT, figZ, gt.to_dict("records"), total_display
 
-# Download melhorado
+# Gráficos
 @app.callback(
-    Output("download-xlsx", "data"),
-    Input("btn-download-xlsx", "n_clicks"),
-    State("tabela", "data"),
-    State("dd-setor", "value"),
-    State("dd-tipo", "value"),
-    State("dd-situacao", "value"),
+    [Output("chart-situacao", "children"),
+     Output("chart-tipos", "children"),
+     Output("chart-setores", "children")],
+    [Input("dd-setor", "value"),
+     Input("dd-tipo", "value"),
+     Input("dd-situacao", "value"),
+     Input("slider-topn", "value")],
+    [State("store-data", "data"),
+     State("store-dark", "data")],
+)
+def update_charts(setor, tipos, situacoes, topn, data_json, dark):
+    if not data_json:
+        empty = html.Div("Sem dados", className="text-center p-4 text-muted")
+        return empty, empty, empty
+    
+    df = pd.read_json(StringIO(data_json), orient="split")
+    df_filt = df.copy()
+    
+    # Aplicar filtros
+    tipos = tipos or []
+    situacoes = situacoes or []
+    
+    if setor and "SetorCmp" in df_filt.columns:
+        df_filt = df_filt[df_filt["SetorCmp"] == str(setor).lower()]
+    if tipos and "TipoCmp" in df_filt.columns:
+        tipos_norm = [str(t).lower() for t in tipos]
+        df_filt = df_filt[df_filt["TipoCmp"].isin(tipos_norm)]
+    if situacoes and "SituacaoCmp" in df_filt.columns:
+        sits_norm = [str(s).lower() for s in situacoes]
+        df_filt = df_filt[df_filt["SituacaoCmp"].isin(sits_norm)]
+    
+    # Agrupamento
+    gt = (df_filt.groupby(["Setor", "Tipo", "Situacao"]).size().reset_index(name="Quantidade")
+          if not df_filt.empty else pd.DataFrame({"Setor": [], "Tipo": [], "Situacao": [], "Quantidade": []}))
+    
+    template = "plotly_dark" if dark else "plotly_white"
+    config = {'displayModeBar': False, 'responsive': True}
+    
+    # Gráfico Situações
+    if not gt.empty:
+        gS = gt.groupby("Situacao")["Quantidade"].sum().reset_index()
+        gS = gS.sort_values("Quantidade", ascending=True).head(topn)
+        
+        figS = px.bar(gS, y="Situacao", x="Quantidade", orientation="h", 
+                     template=template, color="Quantidade", color_continuous_scale="Viridis")
+        figS.update_layout(height=380, margin=dict(l=10,r=10,t=10,b=10), showlegend=False,
+                          yaxis={"categoryorder": "total ascending"}, font=dict(family="Inter"))
+        figS.update_traces(hovertemplate="<b>%{y}</b><br>Qtd: %{x}<extra></extra>")
+        
+        chart_sit = dcc.Graph(figure=figS, config=config, style={"height": "380px"})
+    else:
+        chart_sit = html.Div("Sem dados para situações", className="text-center p-4 text-muted")
+    
+    # Gráfico Tipos
+    if not gt.empty:
+        gT = gt.groupby("Tipo")["Quantidade"].sum().reset_index()
+        gT = gT.sort_values("Quantidade", ascending=True).head(topn)
+        
+        figT = px.bar(gT, y="Tipo", x="Quantidade", orientation="h",
+                     template=template, color="Quantidade", color_continuous_scale="Plasma")
+        figT.update_layout(height=380, margin=dict(l=10,r=10,t=10,b=10), showlegend=False,
+                          yaxis={"categoryorder": "total ascending"}, font=dict(family="Inter"))
+        figT.update_traces(hovertemplate="<b>%{y}</b><br>Qtd: %{x}<extra></extra>")
+        
+        chart_tipos = dcc.Graph(figure=figT, config=config, style={"height": "380px"})
+    else:
+        chart_tipos = html.Div("Sem dados para tipos", className="text-center p-4 text-muted")
+    
+    # Gráfico Setores (dados completos)
+    if not df.empty:
+        gZ = df.groupby("Setor").size().reset_index(name="Quantidade")
+        gZ = gZ.sort_values("Quantidade", ascending=True).head(topn)
+        
+        figZ = px.bar(gZ, y="Setor", x="Quantidade", orientation="h",
+                     template=template, color="Quantidade", color_continuous_scale="Turbo")
+        figZ.update_layout(height=380, margin=dict(l=10,r=10,t=10,b=10), showlegend=False,
+                          yaxis={"categoryorder": "total ascending"}, font=dict(family="Inter"))
+        figZ.update_traces(hovertemplate="<b>%{y}</b><br>Qtd: %{x}<extra></extra>")
+        
+        chart_setores = dcc.Graph(figure=figZ, config=config, style={"height": "380px"})
+    else:
+        chart_setores = html.Div("Sem dados para setores", className="text-center p-4 text-muted")
+    
+    return chart_sit, chart_tipos, chart_setores
+
+# Download Excel
+@app.callback(
+    Output("download-excel", "data"),
+    Input("btn-download", "n_clicks"),
+    [State("dd-setor", "value"),
+     State("dd-tipo", "value"),
+     State("dd-situacao", "value"),
+     State("store-data", "data")],
     prevent_initial_call=True,
 )
-def download_excel(n_clicks, rows, setor, tipos, situacoes):
-    df = pd.DataFrame(rows)
+def download_data(n_clicks, setor, tipos, situacoes, data_json):
+    if not data_json:
+        return None
     
+    df = pd.read_json(StringIO(data_json), orient="split")
+    df_filt = df.copy()
+    
+    # Aplicar filtros
+    tipos = tipos or []
+    situacoes = situacoes or []
+    
+    if setor and "SetorCmp" in df_filt.columns:
+        df_filt = df_filt[df_filt["SetorCmp"] == str(setor).lower()]
+    if tipos and "TipoCmp" in df_filt.columns:
+        tipos_norm = [str(t).lower() for t in tipos]
+        df_filt = df_filt[df_filt["TipoCmp"].isin(tipos_norm)]
+    if situacoes and "SituacaoCmp" in df_filt.columns:
+        sits_norm = [str(s).lower() for s in situacoes]
+        df_filt = df_filt[df_filt["SituacaoCmp"].isin(sits_norm)]
+    
+    # Tabela agrupada
+    gt = (df_filt.groupby(["Setor", "Tipo", "Situacao"]).size().reset_index(name="Quantidade")
+          if not df_filt.empty else pd.DataFrame({"Setor": [], "Tipo": [], "Situacao": [], "Quantidade": []}))
+    
+    # Criar Excel
     with pd.ExcelWriter(io.BytesIO(), engine="openpyxl") as writer:
         # Aba principal
-        df.to_excel(writer, index=False, sheet_name="Dados_Filtrados")
+        gt.to_excel(writer, index=False, sheet_name="Dados_Filtrados")
         
-        if not df.empty:
-            # Análises por categoria
-            df.groupby("Tipo")["Quantidade"].sum().reset_index()\
+        if not gt.empty:
+            # Análises
+            gt.groupby("Tipo")["Quantidade"].sum().reset_index()\
               .sort_values("Quantidade", ascending=False)\
-              .to_excel(writer, index=False, sheet_name="Analise_Tipos")
+              .to_excel(writer, index=False, sheet_name="Por_Tipo")
             
-            df.groupby("Setor")["Quantidade"].sum().reset_index()\
+            gt.groupby("Setor")["Quantidade"].sum().reset_index()\
               .sort_values("Quantidade", ascending=False)\
-              .to_excel(writer, index=False, sheet_name="Analise_Setores")
+              .to_excel(writer, index=False, sheet_name="Por_Setor")
             
-            df.groupby("Situacao")["Quantidade"].sum().reset_index()\
+            gt.groupby("Situacao")["Quantidade"].sum().reset_index()\
               .sort_values("Quantidade", ascending=False)\
-              .to_excel(writer, index=False, sheet_name="Analise_Situacoes")
-            
-            # Análise cruzada
-            pivot = df.pivot_table(
-                values="Quantidade", 
-                index="Setor", 
-                columns="Situacao", 
-                fill_value=0, 
-                aggfunc="sum"
-            )
-            pivot.to_excel(writer, sheet_name="Matriz_Setor_Situacao")
+              .to_excel(writer, index=False, sheet_name="Por_Situacao")
         
-        # Metadados do relatório
+        # Metadados
         meta = pd.DataFrame({
-            "Parâmetro": [
-                "Data/Hora da Exportação",
-                "Setor Filtrado",
-                "Tipos Selecionados", 
-                "Situações Selecionadas",
-                "Total de Registros"
-            ],
+            "Filtro": ["Data/Hora", "Setor", "Tipos", "Situações", "Total"],
             "Valor": [
-                datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                setor if setor else "Todos os setores",
-                ", ".join(tipos) if tipos else "Todos os tipos",
-                ", ".join(situacoes) if situacoes else "Todas as situações",
-                len(df)
+                datetime.now().strftime("%d/%m/%Y %H:%M"),
+                setor if setor else "Todos",
+                ", ".join(tipos) if tipos else "Todos",
+                ", ".join(situacoes) if situacoes else "Todas",
+                len(gt)
             ]
         })
-        meta.to_excel(writer, index=False, sheet_name="Metadados")
+        meta.to_excel(writer, index=False, sheet_name="Informações")
         
-        # Define a primeira aba como ativa
         writer.book.active = writer.book["Dados_Filtrados"]
-        
-        # Obtém os dados do arquivo
         bio = writer._handles.handle
         bio.seek(0)
         data = bio.read()
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"relatorio_processos_{timestamp}.xlsx"
-    
-    return dcc.send_bytes(lambda b: b.write(data), filename=filename)
+    return dcc.send_bytes(lambda b: b.write(data), filename=f"processos_admin_{timestamp}.xlsx")
 
 # Executar aplicação
 if __name__ == "__main__":
